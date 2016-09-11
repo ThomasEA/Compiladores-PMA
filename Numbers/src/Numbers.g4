@@ -23,13 +23,11 @@ BINARY : BIN_DIGIT+ 'b' ; // Sequencia de digitos seguida de b  10100b
 
 DECIMAL : INTEGER'.'(NUMBER+ | NUMBER+(('E' | 'e')?INTEGER+));
 
-INTEGER : ((SIGNAL?(NUMBER+)) | (NUMBER)+);
+INTEGER : ((('-' | '+')?(NUMBER+)) | (NUMBER)+);
 
 BIN_DIGIT : ('0' | '1');
 
 NUMBER : '0'..'9';
-
-SIGNAL : ('-' | '+');
 
 ADD_OPER : '+';
 
