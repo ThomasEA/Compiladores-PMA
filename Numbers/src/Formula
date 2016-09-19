@@ -1,0 +1,39 @@
+grammar Formula;
+
+progr: (expr)*;
+
+expr : term ( ( ADD_OPER | SUB_OPER ) term )*;
+
+term : factor ( ( MUL_OPER | DIV_OPER ) factor )*;
+
+factor: HEX | BINARY | DECIMAL | INTEGER;
+
+WS : [ \r\t\u000C\n]+ -> channel(HIDDEN);
+
+HEX :  '0' 'x' (NUMBER | ('A'..'F') | ('a'..'f'))+;
+
+BINARY : BIN_DIGIT+ 'b' ; // Sequencia de digitos seguida de b  10100b
+
+DECIMAL : INTEGER'.'(NUMBER+ | NUMBER+(('E' | 'e')?INTEGER+));
+
+INTEGER : ((('-' | '+')?(NUMBER+)) | (NUMBER)+);
+
+BIN_DIGIT : ('0' | '1');
+
+NUMBER : '0'..'9';
+
+ADD_OPER : '+';
+
+SUB_OPER : '-';
+
+MUL_OPER : '*';
+
+DIV_OPER : '/';
+
+POW_OPER : '^';
+
+SHOW_STACK : 'status';
+
+RESET_STACK : 'reset';
+
+
