@@ -1,12 +1,12 @@
 grammar Formula;
 
-progr: (expr)*;
+progr: ((expr) | (GRP_OPEN expr GRP_CLOSE))*;
 
-expr : expr operator expr | term | L_PARENT expr R_PARENT;
+expr : term ( ( ADD_OPER | SUB_OPER ) term )*;
 
-term : HEX | BINARY | DECIMAL | INTEGER;
+term : factor ( ( MUL_OPER | DIV_OPER ) factor )*;
 
-operator : ADD_OPER | SUB_OPER | MUL_OPER | DIV_OPER | POW_OPER;
+factor: HEX | BINARY | DECIMAL | INTEGER;
 
 WS : [ \r\t\u000C\n]+ -> channel(HIDDEN);
 
@@ -32,9 +32,9 @@ DIV_OPER : '/';
 
 POW_OPER : '^';
 
-L_PARENT : '(';
+GRP_OPEN : '(';
 
-R_PARENT : ')';
+GRP_CLOSE : ')';
 
 SHOW_STACK : 'status';
 

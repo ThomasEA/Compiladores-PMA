@@ -46,10 +46,10 @@
 	<!-- Executa java -cp build/jar/Numbers.jar -jar ${ANTLRJAR} org.antlr.v4.gui.TestRig *Formula* *progr* -gui *test1.txt* -->
 	  <target name="rungui" depends="jar" description="Executa java -cp build/jar/Numbers.jar -jar ${ANTLRJAR} org.antlr.v4.gui.TestRig *Formula* *progr* -gui *test1.txt*">
 	    <java fork="true" classname="${grun}">
-	      <arg value="*Formula*"/>
-	      <arg value="*progr*"/>
+	      <arg value="Formula"/>
+	      <arg value="progr"/>
 	      <arg value="-gui"/>
-	      <arg value="*test1.txt*" />
+	      <arg value="test1.txt" />
 	      <classpath>
 	        <path refid="classpath"/>
 	        <path location="${jar.dir}/${ant.project.name}.jar"/>

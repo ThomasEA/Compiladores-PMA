@@ -2,7 +2,7 @@ grammar Formula;
 
 progr: (expr)*;
 
-expr : expr operator expr | term | L_PARENT expr R_PARENT;
+expr : expr operator expr | term | operator expr | L_PARENT expr R_PARENT;
 
 term : HEX | BINARY | DECIMAL | INTEGER;
 
