@@ -2,9 +2,9 @@ grammar Formula;
 
 progr: (expr)*;
 
-expr : expr operator expr | term | L_PARENT expr R_PARENT;
+expr : term operator term | term | L_PARENT expr R_PARENT;
 
-term : HEX | BINARY | DECIMAL | INTEGER;
+term : HEX | BINARY | DECIMAL | INTEGER | L_PARENT expr R_PARENT;
 
 operator : ADD_OPER | SUB_OPER | MUL_OPER | DIV_OPER | POW_OPER;
 
