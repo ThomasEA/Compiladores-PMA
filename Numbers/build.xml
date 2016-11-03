@@ -9,7 +9,7 @@
     <property name="grun"        value="org.antlr.v4.gui.TestRig"/>
     <property name="antlrtool"   value="org.antlr.v4.Tool"/>
 	
-    <!-- All jars inside lib/ -->
+    <!-- All jars inside lib / -->
     <property name="lib.dir"     value="lib/"/>
     <path id="classpath">
         <fileset dir="${lib.dir}" includes="**/*.jar"/>

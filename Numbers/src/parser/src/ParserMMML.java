@@ -24,7 +24,7 @@ public class ParserMMML {
 		}
 		catch (Exception e){
 			// Pikachu!
-			System.out.println("Erro:"+e);
+			System.out.println("Erro: "+e);
 			return;
 		}
 	}

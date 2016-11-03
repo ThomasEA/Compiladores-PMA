@@ -172,7 +172,7 @@ returns [String pTipo]
 metaexpr
 returns [String pRule, String pTipo]
 @init {
-    System.out.println("------------");
+    System.out.println("-------------");
     String v1 = null;
     String v2 = null;
 }
