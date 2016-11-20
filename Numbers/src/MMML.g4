@@ -3,6 +3,105 @@ grammar MMML;
 @header {
 package parser.src;
 import java.util.*;
+import java.util.Map.Entry;
+}
+
+@members {
+	private Map<String, String> tabelaSimbolos = new HashMap<>();
+	private List<String> warningMessages = new ArrayList<>();
+	private List<String> errorMessages = new ArrayList<>();
+	
+	private NestedSymbolTable symbolTable = new NestedSymbolTable<Object>(); 
+	
+	private int callCount = 0;
+	
+	private <T, E> T getKeyByValue(Map<T, E> map, E value) {
+    	for (Entry<T, E> entry : map.entrySet()) {
+        	if (Objects.equals(value, entry.getValue())) {
+            	return entry.getKey();
+        	}
+    	}
+    	return null;
+	}
+	
+	private void printErrors() {
+
+		System.out.println(String.format("%d erros encontrados. ", errorMessages.size()));
+		
+		for (String str : errorMessages) {
+			System.out.println(String.format("\t> %s%s", "[ ERROR ]", str));
+		}
+	}
+	
+	private void printWarnings() {
+
+		System.out.println(String.format("%d warnings encontrados. ", warningMessages.size()));
+		
+		for (String str : warningMessages) {
+			System.out.println(String.format("\t> %s%s", "[WARNING]", str));
+		}
+	}
+	
+	private String validarExponenciacao(String tL, String tR) {
+		if ((tL.equals("i") && tR.equals("i")) ||
+			(tL.equals("f") && tR.equals("i")) ||
+			(tL.equals("i") && tR.equals("f")) ||
+			(tL.equals("f") && tR.equals("f"))) {
+			return "f";
+		}
+		else {
+			errorMessages.add(String.format("Operação de exponenciação com tipo errados: %s ^ %s", tabelaSimbolos.get(tL), tabelaSimbolos.get(tR)));
+			return "f";
+		}
+	}
+	
+	private String validarASDM(String tL, String tR) {
+		if ((tL.equals("i") && tR.equals("i"))) {
+			return "i";
+		}
+		else if ((tL.equals("f") && tR.equals("i")) ||
+				 (tL.equals("i") && tR.equals("f")) ||
+				 (tL.equals("f") && tR.equals("f"))) {
+			return "f";
+		}
+		else {
+			errorMessages.add(String.format("Operação aritmética com tipo errados: %s e %s", tabelaSimbolos.get(tL), tabelaSimbolos.get(tR)));
+			
+			if ((tL.equals("i") || tL.equals("f"))) {
+				return tL;
+			}
+			else if ((tR.equals("i") || tR.equals("f"))) {
+				return tR;
+			}
+			else {
+				return tL;
+			}
+		}
+	}
+	
+	private void adicionaSimbolo(NestedSymbolTable table, String symbolName, String tipo) {
+	
+		if (tipo.equals("i")) {
+			NestedSymbolTable<Integer> nt = new NestedSymbolTable<Integer>(table);
+			nt.store(symbolName, 0);
+		}
+		else if (tipo.equals("f")) {
+			NestedSymbolTable<Float> nt = new NestedSymbolTable<Float>(table);
+			nt.store(symbolName, 0f);
+		}
+		else if (tipo.equals("b")) {
+			NestedSymbolTable<Boolean> nt = new NestedSymbolTable<Boolean>(table);
+			nt.store(symbolName, true);
+		}
+		else if (tipo.equals("s")) {
+			NestedSymbolTable<String> nt = new NestedSymbolTable<String>(table);
+			nt.store(symbolName, "");
+		}
+		else if (tipo.equals("c")) {
+			NestedSymbolTable<Character> nt = new NestedSymbolTable<Character>(table);
+			nt.store(symbolName, ' ');
+		}
+	} 
 }
 
 /*options {
@@ -55,7 +154,7 @@ returns [List<String> plist]
 }
     :   fdeclparam
         {
-            $plist.add($fdeclparam.pname);
+            $plist.add($fdeclparam.pName);
         }
         fdeclparams_cont[$plist]
 
@@ -66,7 +165,7 @@ returns [List<String> plist]
 fdeclparams_cont[List<String> plist]
     : ',' fdeclparam
         {
-            $plist.add($fdeclparam.pname);
+            $plist.add($fdeclparam.pName);
         }
         fdeclparams_cont[$plist]
                                                      #fdeclparams_cont_rule
@@ -74,11 +173,11 @@ fdeclparams_cont[List<String> plist]
     ;
 
 fdeclparam
-    returns [String pname, String ptype]
+    returns [String pName, String pType]
     : symbol ':' type
         {
-            $pname = $symbol.text;
-            $ptype = $type.text;
+            $pName = $symbol.text;
+            $pType = $type.text;
         }
         #fdecl_param_rule
     ;
@@ -123,19 +222,13 @@ returns [int dimension=0, String base]
     ;
 
 funcbody
-returns [String pTipoFinal]
-@init {
-    $pTipoFinal = "";
-}
-@after {
-    System.out.println(" -> funcbody: " + $pTipoFinal);
-}
+returns [String pTipo, String pValue]
 	:
         ifexpr                                       #fbody_if_rule
     |   letexpr                                      #fbody_let_rule
-    |   metaexpr 
-    	{ 
-    		$pTipoFinal = $metaexpr.pTipo;
+    |   metaexpr { 
+    		$pTipo = $metaexpr.pTipo;
+    		$pValue = $metaexpr.pValue;
     	}  #fbody_expr_rule
     ;
 
@@ -144,90 +237,102 @@ ifexpr
     ;
 
 letexpr
-    : 'let' letlist 'in' funcbody                    #letexpression_rule
+    : 'let' letlist[symbolTable] 'in' funcbody                    #letexpression_rule
     ;
 
-letlist
-    : letvarexpr  letlist_cont                       #letlist_rule
+letlist[NestedSymbolTable sTable]
+    : letvarexpr[sTable]  letlist_cont[sTable]                       #letlist_rule
     ;
 
-letlist_cont
-    : ',' letvarexpr letlist_cont                    #letlist_cont_rule
+letlist_cont[NestedSymbolTable sTable]
+    : ',' letvarexpr[sTable] letlist_cont[sTable]                    #letlist_cont_rule
     |                                                #letlist_cont_end
     ;
 
-letvarexpr
-    :    symbol '=' funcbody                         #letvarattr_rule
+letvarexpr[NestedSymbolTable sTable]
+    :    symbol '=' funcbody { System.out.println(String.format("Adicionando: %s - %s", $symbol.text, $funcbody.pTipo)); adicionaSimbolo(sTable, $symbol.text, $funcbody.pTipo); }                        #letvarattr_rule
     |    '_'    '=' funcbody                         #letvarresult_ignore_rule
     |    symbol '::' symbol '=' funcbody             #letunpack_rule
     ;
 
-metaexpr_right
-returns [String pTipo]
-@after{
-	System.out.println(" -> metaexpr_right: " + $pTipo);
-}
-	:	metaexpr { $pTipo = $metaexpr.pTipo; };
-
 metaexpr
-returns [String pRule, String pTipo]
+returns [String pRule, String pTipo, String pValue, String pName]
 @init {
-    System.out.println("-------------");
-    String v1 = null;
-    String v2 = null;
+    callCount++;
+    
+    if (tabelaSimbolos.isEmpty()) {//Se a tabela está vazia, carrega
+    	tabelaSimbolos.put("i", "int");
+    	tabelaSimbolos.put("f", "float");
+    	tabelaSimbolos.put("s", "string");
+    	tabelaSimbolos.put("c", "char");
+    	tabelaSimbolos.put("b", "bool");
+    	tabelaSimbolos.put("n", "null");
+    }
+        
+    String tL = null;
+    String tR = null;
+    String vL = null;
+    String vR = null;
+    
+    String vOperacao = null;
 }
 @after{
-	System.out.println(" ## v1: " + v1);
-	System.out.println(" ## v2: " + v2);
-
-	if (v1 == null)
-		v1 = $pTipo;
-	if (v2 == null)
-		v2 = "";
 	
-	if (v1.equals("string") || v2.equals("string")) {
-		$pTipo = "string";
+	callCount--;
+	
+	if ($pRule.equals("TOK_POWER")) {
+		$pTipo = validarExponenciacao(tL, tR);
 	}
-	else if (v1.equals("char") || v2.equals("char")) {
-		$pTipo = "char";
+	else if ($pRule.equals("TOK_DIV_OR_MUL") ||
+			 $pRule.equals("TOK_PLUS_OR_MINUS")) {
+		$pTipo = validarASDM(tL, tR);
 	}
-	else if (v1.equals("bool") || v2.equals("bool")) {
-		$pTipo = "bool";
+	else if ($pRule.equals("TOK_BOOL_AND_OR")) {
+		$pTipo = "b";
+		if (!tL.equals("b") || !tR.equals("b")) {
+			errorMessages.add(String.format("Operação booleana entre tipos incompatíveis: %s %s %s", tabelaSimbolos.get(tL), vOperacao, tabelaSimbolos.get(tR)));
+		}
 	}
-	else if (v1.equals("float") || v2.equals("float")) {
-		$pTipo = "float";
+	else if ($pRule.equals("TOK_CMP_GT_LT") || $pRule.equals("TOK_CMP_EQ_DIFF")) {
+		$pTipo = "b";
 	}
-	else {
-		$pTipo = v1;
+	else if ($pRule.equals("TOK_CMP_GT_LT") || $pRule.equals("TOK_CMP_EQ_DIFF")) {
+		$pTipo = "b";
 	}
-
-	System.out.println(" =>> metaexpr: " + $pRule + " : Tipo: " + $pTipo);
+	else if ($pRule.equals("TOK_NEG")) {
+		$pTipo = "b";
+	}
+	else if ($pRule.equals("TOK_CONCAT")) {
+		if (!tL.equals("s") || !tR.equals("s")) {
+			errorMessages.add(String.format("Operação de concatenação entre tipos incompatíveis: %s %s %s", tabelaSimbolos.get(tL), vOperacao, tabelaSimbolos.get(tR)));
+		}
+		$pTipo = "s";
+	}
+	
+	
+	if (callCount == 0) {
+		System.out.println("------------------------------------------------------------");
+		System.out.println("Tipo final: " + tabelaSimbolos.get($pTipo));
+		System.out.println("------------------------------------------------------------");
+		printErrors();
+		printWarnings();
+	}
 }
-    : '(' funcbody ')'                  { v1 = $funcbody.pTipoFinal; $pRule = "(funcbody)"; }             #me_exprparens_rule     // Anything in parenthesis -- if, let, funcion call, etc
+    : '(' funcbody ')'                  { $pTipo = $funcbody.pTipo; $pRule = "(funcbody)"; }             #me_exprparens_rule     // Anything in parenthesis -- if, let, funcion call, etc
     | sequence_expr                                  #me_list_create_rule    // creates a list [x]
-    | TOK_NEG symbol                    { v1 = "bool"; }             #me_boolneg_rule        // Negate a variable
-    | TOK_NEG '(' funcbody ')'          { v1 = "bool"; }             #me_boolnegparens_rule  //        or anything in between ( )
-    | metaexpr TOK_POWER metaexpr_right { v2 = $metaexpr_right.pTipo; $pTipo = v2;}                  #me_exprpower_rule      // Exponentiation
-    | metaexpr TOK_CONCAT metaexpr_right                   #me_listconcat_rule     // Sequence concatenation
-    | metaexpr TOK_DIV_OR_MUL metaexpr_right { v2 = $metaexpr_right.pTipo; $pTipo = v2;}   	               #me_exprmuldiv_rule     // Div and Mult are equal
-    | metaexpr TOK_PLUS_OR_MINUS metaexpr_right { v2 = $metaexpr_right.pTipo; $pTipo = v2;}            #me_exprplusminus_rule  // Sum and Sub are equal
-    | metaexpr TOK_CMP_GT_LT metaexpr_right   { v1 = "bool"; $pRule = "a TOK_CMP_GT_LT b"; }             #me_boolgtlt_rule       // < <= >= > are equal
-    | metaexpr TOK_CMP_EQ_DIFF metaexpr_right { v1 = "bool"; $pRule = "a TOK_CMP_EQ_DIFF b"; }             #me_booleqdiff_rule     // == and != are egual
-    | metaexpr TOK_BOOL_AND_OR metaexpr_right { v1 = "bool"; $pRule = "a TOK_BOOL_AND_OR b"; }             #me_boolandor_rule      // &&   and  ||  are equal
-    | symbol                                         #me_exprsymbol_rule     // a single symbol
-    | literal                           
-    	{
-    		if (v1 == null) {
-    			v1 = $literal.pTipo;
-    		}
-    		else {
-				v2 = $literal.pTipo;
-    		}
-    		
-    		$pTipo = $literal.pTipo;
-    	}             #me_exprliteral_rule    // literal value
+    | TOK_NEG symbol                    { $pRule = "TOK_NEG"; }             #me_boolneg_rule        // Negate a variable
+    | TOK_NEG '(' funcbody ')'          { $pRule = "TOK_NEG"; $pTipo = $funcbody.pTipo; }             #me_boolnegparens_rule  //        or anything in between ( )
+    | m1=metaexpr TOK_POWER m2=metaexpr { tL = $m1.pTipo; tR = $m2.pTipo; $pRule = "TOK_POWER"; }                  #me_exprpower_rule      // Exponentiation
+    | m1=metaexpr TOK_CONCAT m2=metaexpr { tL = $m1.pTipo; tR = $m2.pTipo; $pRule = "TOK_CONCAT"; vOperacao = $TOK_CONCAT.text; }                   #me_listconcat_rule     // Sequence concatenation
+    | m1=metaexpr TOK_DIV_OR_MUL m2=metaexpr { tL = $m1.pTipo; tR = $m2.pTipo; $pRule = "TOK_DIV_OR_MUL"; }   	               #me_exprmuldiv_rule     // Div and Mult are equal
+    | m1=metaexpr TOK_PLUS_OR_MINUS m2=metaexpr { tL = $m1.pTipo; tR = $m2.pTipo; $pRule = "TOK_PLUS_OR_MINUS"; }            #me_exprplusminus_rule  // Sum and Sub are equal
+    | m1=metaexpr TOK_CMP_GT_LT m2=metaexpr   { tL = $m1.pTipo; tR = $m2.pTipo; $pRule = "TOK_CMP_GT_LT"; }             #me_boolgtlt_rule       // < <= >= > are equal
+    | m1=metaexpr TOK_CMP_EQ_DIFF m2=metaexpr { tL = $m1.pTipo; tR = $m2.pTipo; $pRule = "TOK_CMP_EQ_DIFF"; }             #me_booleqdiff_rule     // == and != are egual
+    | m1=metaexpr TOK_BOOL_AND_OR m2=metaexpr { tL = $m1.pTipo; tR = $m2.pTipo; $pRule = "TOK_BOOL_AND_OR"; vOperacao = $TOK_BOOL_AND_OR.text; }             #me_boolandor_rule      // &&   and  ||  are equal
+    | symbol  { $pName = $symbol.text; }                                       #me_exprsymbol_rule     // a single symbol
+    | literal { $pTipo = $literal.pTipo; $pRule = "literal"; $pValue = $literal.pValue; }           #me_exprliteral_rule    // literal value
     | funcall                                        #me_exprfuncall_rule    // a funcion call
-    | cast  { v1 = $cast.pTipo; $pRule = "cast"; }                                         #me_exprcast_rule       // cast a type to other
+    | cast  { $pTipo = $cast.pTipo; $pRule = "cast"; $pValue = $cast.pValueDestino; }                                         #me_exprcast_rule       // cast a type to other
     ;
 
 sequence_expr
@@ -241,8 +346,84 @@ funcall: symbol funcall_params                       #funcall_rule
     ;
 
 cast
-returns [String pTipo]
-    : type funcbody  { $pTipo = $type.text; System.out.println(" -> cast: " + $pTipo); }                                #cast_rule
+returns [String pTipo, String pValueOriginal, String pValueDestino]
+@init {
+	String ret = null;
+	String vOriginal = null;
+	String vDestino = null;
+}
+@after {
+
+	String tipoDestino = getKeyByValue(tabelaSimbolos, $pTipo);
+	
+	if (tipoDestino.equals("f")) {
+		if (!ret.equals("i") && !ret.equals("s")) {
+			errorMessages.add(String.format("Conversão de '%s'[%s] para '%s' inválida!", tabelaSimbolos.get(ret), vOriginal, $pTipo));
+			
+			vDestino = String.valueOf(Float.parseFloat("1"));
+		}
+		else {
+			try {
+				float f = Float.parseFloat(vOriginal);
+				vDestino = String.format("%f", f);
+			}
+			catch (Exception e) {
+				errorMessages.add(String.format("Conversão de '%s'[%s] para '%s' inválida!", tabelaSimbolos.get(ret), vOriginal, $pTipo));
+				vDestino = String.format("%f", 1);
+			}	
+		}
+	}
+	else if (tipoDestino.equals("i")) {
+		if (ret.equals("f")) {
+			double d = Double.parseDouble(vOriginal);
+			int i = (int) d;
+			vDestino = String.format("%d", i);
+			warningMessages.add(String.format("Inteiro descartando parte fracionária! Pode perder precisão (%s -> %s).", vOriginal, vDestino));		
+		}
+		else if (ret.equals("c")) {
+			char c = vOriginal.charAt(0);
+			int i = (int) c;
+			vDestino = String.format("%d", i);
+		}
+		else {
+			try {
+				int i = Integer.parseInt(vOriginal);
+				vDestino = String.format("%d", i);
+			}
+			catch (Exception e) {
+				errorMessages.add(String.format("Conversão de '%s'[%s] para '%s' inválida!", tabelaSimbolos.get(ret), vOriginal, $pTipo));
+				vDestino = String.format("%d", 1);
+			}
+		}
+	}
+	else if (tipoDestino.equals("s")) {
+		vDestino = String.valueOf(vOriginal);	
+	}
+	else if (tipoDestino.equals("c")) {
+		if (ret.equals("i")) {
+			int i = Integer.parseInt(vOriginal);
+			char c = (char) i;
+			vDestino = String.format("%s", c);
+		}
+		else {
+			errorMessages.add(String.format("Conversão de '%s'[%s] para '%s' inválida!", tabelaSimbolos.get(ret), vOriginal, $pTipo));
+			vDestino = "a";
+		}	
+	}
+	else if (tipoDestino.equals("b")) {
+		if (vOriginal == null)
+			vDestino = "false";
+		else
+			vDestino = "true";
+	}
+	else {
+		errorMessages.add(String.format("Conversão de '%s'[%s] para '%s' inválida! Tipos aceitos são {float, int, char, bool, str}.", tabelaSimbolos.get(ret), vOriginal, $pTipo));
+		System.exit(0);
+	}
+	
+	$pTipo = tipoDestino;
+}
+    : type vFunc=funcbody  { $pTipo = $type.text; ret = $vFunc.pTipo; vOriginal = $vFunc.pValue; }                                #cast_rule
     ;
 
 funcall_params
@@ -256,36 +437,33 @@ funcall_params_cont
     ;
 
 literal
-returns [String pRule, String pTipo] 
-@after {
-	System.out.println(" =>> literal: " + $pRule + " : Tipo: " + $pTipo);
-}
+returns [String pRule, String pTipo, String pValue] 
 	: 
-        'nil'   {$pTipo = "null"; $pRule = "nil";}                                        #literalnil_rule
-    |   'true'  {$pTipo = "bool"; $pRule = "true";}                                        #literaltrue_rule
-    |   'false' {$pTipo = "bool"; $pRule = "false";}                                         #literaltrue_rule
-    |   number 	{$pTipo = $number.pTipo; $pRule = "number";}	 									#literalnumber_rule
-    |   strlit  {$pTipo = "string"; $pRule = "strlit";}                                        #literalstring_rule
-    |   charlit {$pTipo = "char";  $pRule = "charlit";}                                        #literal_char_rule
+        'nil'   {$pTipo = "n"; $pRule = "nil"; $pValue = "nil";}                                        #literalnil_rule
+    |   'true'  {$pTipo = "b"; $pRule = "true"; $pValue = "true";}                                        #literaltrue_rule
+    |   'false' {$pTipo = "b"; $pRule = "false"; $pValue = "false";}                                         #literaltrue_rule
+    |   number 	{$pTipo = $number.pTipo; $pRule = "number"; $pValue = $number.pValue;}	 									#literalnumber_rule
+    |   strlit  {$pTipo = "s"; $pRule = "strlit"; $pValue = $strlit.pValue;}                                        #literalstring_rule
+    |   charlit {$pTipo = "c";  $pRule = "charlit"; $pValue = $charlit.pValue;}                                        #literal_char_rule
     ;
 
-strlit: TOK_STR_LIT
+strlit
+returns [String pValue]
+	: TOK_STR_LIT { $pValue = $TOK_STR_LIT.text.replaceAll("\"", ""); }
     ;
 
 charlit
-    : TOK_CHAR_LIT
+returns [String pValue]
+    : TOK_CHAR_LIT { $pValue = $TOK_CHAR_LIT.text.replaceAll("'", ""); }
     ;
 
 number
-returns [String pRule, String pTipo]
-@after {
-	System.out.println(" =>> number: " + $pRule + " : Tipo: " + $pTipo);
-}
+returns [String pRule, String pTipo, String pValue]
 	:
-        FLOAT {$pTipo = "float"; $pRule = "FLOAT";} #numberfloat_rule
-    |   DECIMAL {$pTipo = "int"; $pRule = "DECIMAL";} #numberdecimal_rule
-    |   HEXADECIMAL {$pTipo = "int"; $pRule = "HEXADECIMAL";} #numberhexadecimal_rule
-    |   BINARY {$pTipo = "int"; $pRule = "BINARY";} #numberbinary_rule
+        FLOAT {$pTipo = "f"; $pRule = "FLOAT"; $pValue = $FLOAT.text;} #numberfloat_rule
+    |   DECIMAL {$pTipo = "i"; $pRule = "DECIMAL"; $pValue = $DECIMAL.text;} #numberdecimal_rule
+    |   HEXADECIMAL {$pTipo = "i"; $pRule = "HEXADECIMAL"; $pValue = $HEXADECIMAL.text;} #numberhexadecimal_rule
+    |   BINARY {$pTipo = "i"; $pRule = "BINARY"; $pValue = $BINARY.text;} #numberbinary_rule
     
                 ;
 
@@ -332,4 +510,4 @@ fragment
 HEX_DIGIT : [0-9A-Fa-f];
 
 fragment
-DEC_DIGIT : [0-9] ;
+DEC_DIGIT : [0-9];

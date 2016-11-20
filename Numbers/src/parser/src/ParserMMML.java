@@ -2,11 +2,14 @@ package parser.src;
 
 import org.antlr.v4.runtime.*;// class ANTLRInputStream , Token
 import java.io.*;
+import java.util.*;
+
 import javax.swing.JFileChooser;
 import javax.swing.filechooser.*;
 
 public class ParserMMML {
 	public static void main(String[] args) throws Exception {
+		
 		// ou recebe como argumento, depende de como preferir executar
 		/*
 		JFileChooser chooser=new JFileChooser();
