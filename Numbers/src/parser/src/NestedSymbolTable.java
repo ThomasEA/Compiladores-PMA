@@ -3,21 +3,27 @@ package parser.src;
 import java.util.*;
 
 class SymbolEntry<T> {
-    public T symbol;
+    public String name;
+    public String type;
+	public T symbol;
     public int offset;
     public int size;
 
-    public SymbolEntry(T symbol, int offset, int size) {
-        this.symbol = symbol;
+    public SymbolEntry(String name, String type, T symbol, int offset, int size) {
+        this.name = name;
+        this.type = type;
+    	this.symbol = symbol;
         this.offset = offset;
         this.size = size;
     }
 
     public String toString() {
-        return "Entry at " + offset +
-                ", size " + size +
-                ", value: " + symbol +
-                ", type: " + symbol.getClass().getSimpleName();
+        return "Symbol: " + name + 
+        		", Type " + type +
+        		", Offset " + offset +
+                ", Size " + size;
+        
+                //", Value: " + symbol;
     }
 }
 
@@ -147,20 +153,20 @@ public class NestedSymbolTable<T> {
      *              the old symbol. This may leave holes in the memory, could be
      *              optimized
      *---------------------------------------------------------------------------*/
-    public int store(String name, T symbol, int size) {
+    public int store(String name, String type, T symbol, int size) {
         int symbolOffset = this.nextOffset;
         if (!storage.containsKey(name))
             this.entriesCount++;
         this.size += size;
         this.nextOffset += size;
 
-        storage.put(name, new SymbolEntry<T>(symbol, symbolOffset, size));
+        storage.put(name, new SymbolEntry<T>(name, type, symbol, symbolOffset, size));
 
         return symbolOffset;
     }
 
-    public int store(String name, T symbol) {
-        return this.store(name, symbol, 1);
+    public int store(String name, String type, T symbol) {
+        return this.store(name, type, symbol, 1);
     }
 
     /*-----------------------------------------------------------------------------

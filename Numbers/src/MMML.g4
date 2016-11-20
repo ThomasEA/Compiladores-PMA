@@ -11,7 +11,7 @@ import java.util.Map.Entry;
 	private List<String> warningMessages = new ArrayList<>();
 	private List<String> errorMessages = new ArrayList<>();
 	
-	private NestedSymbolTable symbolTable = new NestedSymbolTable<Object>(); 
+	private NestedSymbolTable<Object> symbolTable = new NestedSymbolTable<Object>(); 
 	
 	private int callCount = 0;
 	
@@ -80,7 +80,17 @@ import java.util.Map.Entry;
 	}
 	
 	private void adicionaSimbolo(NestedSymbolTable table, String symbolName, String tipo) {
-	
+		
+		SymbolEntry<Object> s = symbolTable.lookup(symbolName);
+		
+		if (s != null) {
+			errorMessages.add(String.format("Símbolo '%s' já foi declarado!", symbolName));
+		}
+		else {
+			table.store(symbolName, tabelaSimbolos.get(tipo), 0);
+		}
+			
+		/*
 		if (tipo.equals("i")) {
 			NestedSymbolTable<Integer> nt = new NestedSymbolTable<Integer>(table);
 			nt.store(symbolName, 0);
@@ -101,6 +111,15 @@ import java.util.Map.Entry;
 			NestedSymbolTable<Character> nt = new NestedSymbolTable<Character>(table);
 			nt.store(symbolName, ' ');
 		}
+		*/
+	}
+	
+	private void printSymbolTable() {
+		System.out.println("Tabela de símbolos:");
+		System.out.println("====================================");
+		for (SymbolEntry<Object> entry : symbolTable.getEntries()) {
+            System.out.println(entry);
+        }
 	} 
 }
 
@@ -223,6 +242,27 @@ returns [int dimension=0, String base]
 
 funcbody
 returns [String pTipo, String pValue]
+@init {
+    callCount++;
+    
+    if (tabelaSimbolos.isEmpty()) {//Se a tabela está vazia, carrega
+    	tabelaSimbolos.put("i", "int");
+    	tabelaSimbolos.put("f", "float");
+    	tabelaSimbolos.put("s", "string");
+    	tabelaSimbolos.put("c", "char");
+    	tabelaSimbolos.put("b", "bool");
+    	tabelaSimbolos.put("n", "null");
+    }
+}
+@after {
+	callCount--;
+	
+	if (callCount == 0) {
+		System.out.println("--------------------------------------------------");
+		printErrors();
+		printWarnings();
+	}
+}
 	:
         ifexpr                                       #fbody_if_rule
     |   letexpr                                      #fbody_let_rule
@@ -237,27 +277,28 @@ ifexpr
     ;
 
 letexpr
-    : 'let' letlist[symbolTable] 'in' funcbody                    #letexpression_rule
+    : 'let' letlist { printSymbolTable(); } 'in' funcbody                    #letexpression_rule
     ;
 
-letlist[NestedSymbolTable sTable]
-    : letvarexpr[sTable]  letlist_cont[sTable]                       #letlist_rule
+letlist
+    : letvarexpr  letlist_cont                       #letlist_rule
     ;
 
-letlist_cont[NestedSymbolTable sTable]
-    : ',' letvarexpr[sTable] letlist_cont[sTable]                    #letlist_cont_rule
+letlist_cont
+    : ',' letvarexpr letlist_cont                    #letlist_cont_rule
     |                                                #letlist_cont_end
     ;
 
-letvarexpr[NestedSymbolTable sTable]
-    :    symbol '=' funcbody { System.out.println(String.format("Adicionando: %s - %s", $symbol.text, $funcbody.pTipo)); adicionaSimbolo(sTable, $symbol.text, $funcbody.pTipo); }                        #letvarattr_rule
-    |    '_'    '=' funcbody                         #letvarresult_ignore_rule
+letvarexpr
+    :    symbol '=' funcbody { adicionaSimbolo(symbolTable, $symbol.text, $funcbody.pTipo); }                        #letvarattr_rule
+    |    '_'    '=' funcbody { adicionaSimbolo(symbolTable, "_", $funcbody.pTipo); }                        #letvarresult_ignore_rule
     |    symbol '::' symbol '=' funcbody             #letunpack_rule
     ;
 
 metaexpr
 returns [String pRule, String pTipo, String pValue, String pName]
 @init {
+	/*
     callCount++;
     
     if (tabelaSimbolos.isEmpty()) {//Se a tabela está vazia, carrega
@@ -268,7 +309,7 @@ returns [String pRule, String pTipo, String pValue, String pName]
     	tabelaSimbolos.put("b", "bool");
     	tabelaSimbolos.put("n", "null");
     }
-        
+    */  
     String tL = null;
     String tR = null;
     String vL = null;
@@ -278,7 +319,7 @@ returns [String pRule, String pTipo, String pValue, String pName]
 }
 @after{
 	
-	callCount--;
+	//callCount--;
 	
 	if ($pRule.equals("TOK_POWER")) {
 		$pTipo = validarExponenciacao(tL, tR);
@@ -309,7 +350,7 @@ returns [String pRule, String pTipo, String pValue, String pName]
 		$pTipo = "s";
 	}
 	
-	
+	/*
 	if (callCount == 0) {
 		System.out.println("------------------------------------------------------------");
 		System.out.println("Tipo final: " + tabelaSimbolos.get($pTipo));
@@ -317,8 +358,9 @@ returns [String pRule, String pTipo, String pValue, String pName]
 		printErrors();
 		printWarnings();
 	}
+	*/
 }
-    : '(' funcbody ')'                  { $pTipo = $funcbody.pTipo; $pRule = "(funcbody)"; }             #me_exprparens_rule     // Anything in parenthesis -- if, let, funcion call, etc
+    : '(' funcbody ')'                  { $pTipo = $funcbody.pTipo; $pRule = "(funcbody)"; $pValue = $funcbody.text; }             #me_exprparens_rule     // Anything in parenthesis -- if, let, funcion call, etc
     | sequence_expr                                  #me_list_create_rule    // creates a list [x]
     | TOK_NEG symbol                    { $pRule = "TOK_NEG"; }             #me_boolneg_rule        // Negate a variable
     | TOK_NEG '(' funcbody ')'          { $pRule = "TOK_NEG"; $pTipo = $funcbody.pTipo; }             #me_boolnegparens_rule  //        or anything in between ( )
@@ -329,7 +371,19 @@ returns [String pRule, String pTipo, String pValue, String pName]
     | m1=metaexpr TOK_CMP_GT_LT m2=metaexpr   { tL = $m1.pTipo; tR = $m2.pTipo; $pRule = "TOK_CMP_GT_LT"; }             #me_boolgtlt_rule       // < <= >= > are equal
     | m1=metaexpr TOK_CMP_EQ_DIFF m2=metaexpr { tL = $m1.pTipo; tR = $m2.pTipo; $pRule = "TOK_CMP_EQ_DIFF"; }             #me_booleqdiff_rule     // == and != are egual
     | m1=metaexpr TOK_BOOL_AND_OR m2=metaexpr { tL = $m1.pTipo; tR = $m2.pTipo; $pRule = "TOK_BOOL_AND_OR"; vOperacao = $TOK_BOOL_AND_OR.text; }             #me_boolandor_rule      // &&   and  ||  are equal
-    | symbol  { $pName = $symbol.text; }                                       #me_exprsymbol_rule     // a single symbol
+    | symbol  
+    	{ 
+    		$pName = $symbol.text;
+    		SymbolEntry<Object> s = symbolTable.lookup($pName);
+    		if (s != null) {
+    			$pTipo = getKeyByValue(tabelaSimbolos, s.type);
+    		}
+    		else {
+    			errorMessages.add(String.format("Símbolo '%s' não declarado!", $pName));
+    		}
+    		
+    		$pRule = "symbol";
+    	}                                       #me_exprsymbol_rule     // a single symbol
     | literal { $pTipo = $literal.pTipo; $pRule = "literal"; $pValue = $literal.pValue; }           #me_exprliteral_rule    // literal value
     | funcall                                        #me_exprfuncall_rule    // a funcion call
     | cast  { $pTipo = $cast.pTipo; $pRule = "cast"; $pValue = $cast.pValueDestino; }                                         #me_exprcast_rule       // cast a type to other
@@ -360,35 +414,35 @@ returns [String pTipo, String pValueOriginal, String pValueDestino]
 		if (!ret.equals("i") && !ret.equals("s")) {
 			errorMessages.add(String.format("Conversão de '%s'[%s] para '%s' inválida!", tabelaSimbolos.get(ret), vOriginal, $pTipo));
 			
-			vDestino = String.valueOf(Float.parseFloat("1"));
+			//vDestino = String.valueOf(Float.parseFloat("1"));
 		}
 		else {
 			try {
-				float f = Float.parseFloat(vOriginal);
-				vDestino = String.format("%f", f);
+				//float f = Float.parseFloat(vOriginal);
+				//vDestino = String.format("%f", f);
 			}
 			catch (Exception e) {
 				errorMessages.add(String.format("Conversão de '%s'[%s] para '%s' inválida!", tabelaSimbolos.get(ret), vOriginal, $pTipo));
-				vDestino = String.format("%f", 1);
+				//vDestino = String.format("%f", 1);
 			}	
 		}
 	}
 	else if (tipoDestino.equals("i")) {
 		if (ret.equals("f")) {
-			double d = Double.parseDouble(vOriginal);
-			int i = (int) d;
-			vDestino = String.format("%d", i);
-			warningMessages.add(String.format("Inteiro descartando parte fracionária! Pode perder precisão (%s -> %s).", vOriginal, vDestino));		
+			//double d = Double.parseDouble(vOriginal);
+			//int i = (int) d;
+			//vDestino = String.format("%d", i);
+			warningMessages.add(String.format("Inteiro descartando parte fracionária! Pode perder precisão (%s).", vOriginal));		
 		}
 		else if (ret.equals("c")) {
-			char c = vOriginal.charAt(0);
-			int i = (int) c;
-			vDestino = String.format("%d", i);
+			//char c = vOriginal.charAt(0);
+			//int i = (int) c;
+			//vDestino = String.format("%d", i);
 		}
 		else {
 			try {
-				int i = Integer.parseInt(vOriginal);
-				vDestino = String.format("%d", i);
+				//int i = Integer.parseInt(vOriginal);
+				//vDestino = String.format("%d", i);
 			}
 			catch (Exception e) {
 				errorMessages.add(String.format("Conversão de '%s'[%s] para '%s' inválida!", tabelaSimbolos.get(ret), vOriginal, $pTipo));
@@ -397,17 +451,17 @@ returns [String pTipo, String pValueOriginal, String pValueDestino]
 		}
 	}
 	else if (tipoDestino.equals("s")) {
-		vDestino = String.valueOf(vOriginal);	
+		//vDestino = String.valueOf(vOriginal);	
 	}
 	else if (tipoDestino.equals("c")) {
 		if (ret.equals("i")) {
-			int i = Integer.parseInt(vOriginal);
-			char c = (char) i;
-			vDestino = String.format("%s", c);
+			//int i = Integer.parseInt(vOriginal);
+			//char c = (char) i;
+			//vDestino = String.format("%s", c);
 		}
 		else {
 			errorMessages.add(String.format("Conversão de '%s'[%s] para '%s' inválida!", tabelaSimbolos.get(ret), vOriginal, $pTipo));
-			vDestino = "a";
+			//vDestino = "a";
 		}	
 	}
 	else if (tipoDestino.equals("b")) {

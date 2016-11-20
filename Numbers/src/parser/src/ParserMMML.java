@@ -23,11 +23,12 @@ public class ParserMMML {
 			MMMLLexer lexer= new MMMLLexer(new ANTLRInputStream(fin));
 			CommonTokenStream tokens = new CommonTokenStream(lexer);
 			MMMLParser parser= new MMMLParser(tokens);
-			parser.metaexpr();// Comecando dessa regra , poderia trocar// por .funcbody ou .metaexpr
+			parser.funcbody();// Comecando dessa regra , poderia trocar// por .funcbody ou .metaexpr
 		}
 		catch (Exception e){
 			// Pikachu!
 			System.out.println("Erro: "+e);
+			e.printStackTrace();
 			return;
 		}
 	}
