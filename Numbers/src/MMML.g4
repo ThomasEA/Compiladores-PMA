@@ -79,7 +79,7 @@ import java.util.Map.Entry;
 		}
 	}
 	
-	private void adicionaSimbolo(NestedSymbolTable table, String symbolName, String tipo) {
+	private void adicionaSimbolo(String symbolName, String tipo) {
 		
 		SymbolEntry<Object> s = symbolTable.lookup(symbolName);
 		
@@ -87,7 +87,7 @@ import java.util.Map.Entry;
 			errorMessages.add(String.format("Símbolo '%s' já foi declarado!", symbolName));
 		}
 		else {
-			table.store(symbolName, tabelaSimbolos.get(tipo), 0);
+			symbolTable.store(symbolName, tabelaSimbolos.get(tipo), 0);
 		}
 			
 		/*
@@ -115,7 +115,7 @@ import java.util.Map.Entry;
 	}
 	
 	private void printSymbolTable() {
-		System.out.println("Tabela de símbolos:");
+		System.out.println("\nTabela de símbolos:");
 		System.out.println("====================================");
 		for (SymbolEntry<Object> entry : symbolTable.getEntries()) {
             System.out.println(entry);
@@ -277,11 +277,11 @@ ifexpr
     ;
 
 letexpr
-    : 'let' letlist { printSymbolTable(); } 'in' funcbody                    #letexpression_rule
+    : { symbolTable = new NestedSymbolTable<Object>(symbolTable); } 'let' letlist { printSymbolTable(); } 'in' funcbody { symbolTable = symbolTable.getParent(); }                   #letexpression_rule
     ;
 
 letlist
-    : letvarexpr  letlist_cont                       #letlist_rule
+    : letvarexpr letlist_cont                       #letlist_rule
     ;
 
 letlist_cont
@@ -290,8 +290,8 @@ letlist_cont
     ;
 
 letvarexpr
-    :    symbol '=' funcbody { adicionaSimbolo(symbolTable, $symbol.text, $funcbody.pTipo); }                        #letvarattr_rule
-    |    '_'    '=' funcbody { adicionaSimbolo(symbolTable, "_", $funcbody.pTipo); }                        #letvarresult_ignore_rule
+    :    symbol '=' funcbody { adicionaSimbolo($symbol.text, $funcbody.pTipo); }  	#letvarattr_rule
+    |    '_'    '=' funcbody { adicionaSimbolo("_", $funcbody.pTipo); }              #letvarresult_ignore_rule
     |    symbol '::' symbol '=' funcbody             #letunpack_rule
     ;
 
@@ -330,6 +330,7 @@ returns [String pRule, String pTipo, String pValue, String pName]
 	}
 	else if ($pRule.equals("TOK_BOOL_AND_OR")) {
 		$pTipo = "b";
+		
 		if (!tL.equals("b") || !tR.equals("b")) {
 			errorMessages.add(String.format("Operação booleana entre tipos incompatíveis: %s %s %s", tabelaSimbolos.get(tL), vOperacao, tabelaSimbolos.get(tR)));
 		}
