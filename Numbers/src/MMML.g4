@@ -11,6 +11,7 @@ import java.util.Map.Entry;
 	private List<String> warningMessages = new ArrayList<>();
 	private List<String> errorMessages = new ArrayList<>();
 	
+	private Stack<Object> pilhaValores = new Stack<Object>();
 	private NestedSymbolTable<Object> symbolTable = new NestedSymbolTable<Object>(); 
 	
 	private int callCount = 0;
@@ -55,8 +56,129 @@ import java.util.Map.Entry;
 		}
 	}
 	
-	private String validarASDM(String tL, String tR) {
+	private String validarConcatenacao(String tL, String tR) {
+		
+		printPilhaValores();
+		
+		String vR = pilhaValores.pop().toString();
+		String vL = pilhaValores.pop().toString();
+
+		if (!tL.equals("s") || !tR.equals("s")) {
+			errorMessages.add(String.format("Operação de concatenação entre tipos incompatíveis: %s :: %s", tabelaSimbolos.get(tL), tabelaSimbolos.get(tR)));
+			
+			if (!tL.equals("s")) {
+				vL = "";
+			}
+			
+			if (!tR.equals("s")) {
+				vR = "";
+			}
+		}
+		
+		pilhaValores.push(String.format("%s%s", vL, vR));
+		
+		return "s";
+	}
+	
+	private String validarCast(String tipoDestino, String tipoOriginal, String vValue) {
+		String tipo = tabelaSimbolos.get(tipoOriginal);
+		
+		String tipoDestinoKey = getKeyByValue(tabelaSimbolos, tipoDestino);
+				
+		String vFinal = pilhaValores.pop().toString();
+		
+		if (tipoDestino.equals(tipo)) {
+			//Não faz nada
+		}
+		else if (tipoDestinoKey.equals("f")) {
+			if (!tipoOriginal.equals("i") && !tipoOriginal.equals("s")) {
+				errorMessages.add(String.format("Conversão de '%s'[%s] para '%s' inválida!", tipo, vValue, tipoDestino));
+			
+				vFinal = "1";
+			}
+			else {
+				try {
+					float f = Float.parseFloat(vValue);
+					vFinal = String.format("%f", f);
+				}
+				catch (Exception e) {
+					errorMessages.add(String.format("Conversão de '%s'[%s] para '%s' inválida!", tipo, vValue, tipoDestino));
+					vFinal = "1";
+				}	
+			}
+		}
+		else if (tipoDestinoKey.equals("i")) {
+			if (tipoOriginal.equals("f")) {
+				double d = Double.parseDouble(vValue);
+				int i = (int) d;
+				vFinal = String.format("%d", i);
+				
+				warningMessages.add(String.format("Inteiro descartando parte fracionária! Pode perder precisão (%s).", vValue));		
+			}
+			else if (tipoOriginal.equals("c")) {
+				char c = vValue.charAt(0);
+				int i = (int) c;
+				vFinal = String.format("%d", i);
+			}
+			else {
+				try {
+					int i = Integer.parseInt(vValue);
+					vFinal = String.format("%d", i);
+				}
+				catch (Exception e) {
+					errorMessages.add(String.format("Conversão de '%s'[%s] para '%s' inválida!", tipo, vValue, tipoDestino));
+					vFinal = "1";
+				}
+			}
+		}
+		else if (tipoDestinoKey.equals("s")) {
+			vFinal = vValue;	
+		}
+		else if (tipoDestinoKey.equals("c")) {
+			if (tipoOriginal.equals("i")) {
+				int i = Integer.parseInt(vValue);
+				char c = (char) i;
+				vFinal = String.format("%s", c);
+			}
+			else {
+				errorMessages.add(String.format("Conversão de '%s'[%s] para '%s' inválida!", tipo, vValue, tipoDestino));
+				vFinal = " ";
+			}	
+		}
+		else if (tipoDestinoKey.equals("b")) {
+			if (vValue == null)
+				vFinal = "false";
+			else
+				vFinal = "true";
+		}
+		else {
+			errorMessages.add(String.format("Conversão de '%s'[%s] para '%s' inválida! Tipos aceitos são {float, int, char, bool, str}.", tipo, vValue, tipoDestino));
+		}
+		
+		pilhaValores.push(vFinal);
+		
+		return getKeyByValue(tabelaSimbolos, tipoDestino);
+	}
+	
+	private String validarASDM(String tL, String tR, String operacao) {
 		if ((tL.equals("i") && tR.equals("i"))) {
+			
+			int op2 = Integer.parseInt(pilhaValores.pop().toString());
+			int op1 = Integer.parseInt(pilhaValores.pop().toString());
+			
+			if (operacao.equals("+")) {
+				pilhaValores.push(op1 + op2);
+			}
+			else if (operacao.equals("-")) {
+				pilhaValores.push(op1 - op2);
+			}
+			else if (operacao.equals("*")) {
+				pilhaValores.push(op1 * op2);
+			}
+			else if (operacao.equals("/")) {
+				pilhaValores.push(op1 / op2);
+			}
+			
 			return "i";
 		}
 		else if ((tL.equals("f") && tR.equals("i")) ||
@@ -79,39 +201,18 @@ import java.util.Map.Entry;
 		}
 	}
 	
-	private void adicionaSimbolo(String symbolName, String tipo) {
+	private void adicionaSimbolo(String symbolName, String tipo, String value) {
 		
 		SymbolEntry<Object> s = symbolTable.lookup(symbolName);
 		
 		if (s != null) {
 			errorMessages.add(String.format("Símbolo '%s' já foi declarado!", symbolName));
+			printErrors();
+			System.exit(0);
 		}
 		else {
-			symbolTable.store(symbolName, tabelaSimbolos.get(tipo), 0);
+			symbolTable.store(symbolName, tabelaSimbolos.get(tipo), value);
 		}
-			
-		/*
-		if (tipo.equals("i")) {
-			NestedSymbolTable<Integer> nt = new NestedSymbolTable<Integer>(table);
-			nt.store(symbolName, 0);
-		}
-		else if (tipo.equals("f")) {
-			NestedSymbolTable<Float> nt = new NestedSymbolTable<Float>(table);
-			nt.store(symbolName, 0f);
-		}
-		else if (tipo.equals("b")) {
-			NestedSymbolTable<Boolean> nt = new NestedSymbolTable<Boolean>(table);
-			nt.store(symbolName, true);
-		}
-		else if (tipo.equals("s")) {
-			NestedSymbolTable<String> nt = new NestedSymbolTable<String>(table);
-			nt.store(symbolName, "");
-		}
-		else if (tipo.equals("c")) {
-			NestedSymbolTable<Character> nt = new NestedSymbolTable<Character>(table);
-			nt.store(symbolName, ' ');
-		}
-		*/
 	}
 	
 	private void printSymbolTable() {
@@ -119,6 +220,15 @@ import java.util.Map.Entry;
 		System.out.println("====================================");
 		for (SymbolEntry<Object> entry : symbolTable.getEntries()) {
             System.out.println(entry);
+        }
+	}
+	
+	private void printPilhaValores() {
+		System.out.println("\nPilha de Valores: ");
+		System.out.println("====================================");
+		for (int i = 0; i < pilhaValores.size(); i++) {
+            Object o = pilhaValores.get(i);
+            System.out.println(o.toString());
         }
 	} 
 }
@@ -242,30 +352,9 @@ returns [int dimension=0, String base]
 
 funcbody
 returns [String pTipo, String pValue]
-@init {
-    callCount++;
-    
-    if (tabelaSimbolos.isEmpty()) {//Se a tabela está vazia, carrega
-    	tabelaSimbolos.put("i", "int");
-    	tabelaSimbolos.put("f", "float");
-    	tabelaSimbolos.put("s", "string");
-    	tabelaSimbolos.put("c", "char");
-    	tabelaSimbolos.put("b", "bool");
-    	tabelaSimbolos.put("n", "null");
-    }
-}
-@after {
-	callCount--;
-	
-	if (callCount == 0) {
-		System.out.println("--------------------------------------------------");
-		printErrors();
-		printWarnings();
-	}
-}
 	:
         ifexpr                                       #fbody_if_rule
-    |   letexpr                                      #fbody_let_rule
+    |   letexpr { $pTipo = $letexpr.pTipo; $pValue = $letexpr.pValue; }         #fbody_let_rule
     |   metaexpr { 
     		$pTipo = $metaexpr.pTipo;
     		$pValue = $metaexpr.pValue;
@@ -277,7 +366,31 @@ ifexpr
     ;
 
 letexpr
-    : { symbolTable = new NestedSymbolTable<Object>(symbolTable); } 'let' letlist { printSymbolTable(); } 'in' funcbody { symbolTable = symbolTable.getParent(); }                   #letexpression_rule
+returns[String pTipo, String pValue]
+@init {
+    callCount++;
+    
+    if (tabelaSimbolos.isEmpty()) {//Se a tabela está vazia, carrega
+    	tabelaSimbolos.put("i", "int");
+    	tabelaSimbolos.put("f", "float");
+    	tabelaSimbolos.put("s", "str");
+    	tabelaSimbolos.put("c", "char");
+    	tabelaSimbolos.put("b", "bool");
+    	tabelaSimbolos.put("n", "null");
+    }
+}
+@after {
+	callCount--;
+	
+	if (callCount == 0) {
+		System.out.println("--------------------------------------------------");
+		printPilhaValores();
+		System.out.println("--------------------------------------------------");
+		printErrors();
+		printWarnings();
+	}
+}
+    : { symbolTable = new NestedSymbolTable<Object>(symbolTable); } 'let' letlist { printSymbolTable(); } 'in' funcbody { $pTipo = $funcbody.pTipo; symbolTable = symbolTable.getParent(); }                   #letexpression_rule
     ;
 
 letlist
@@ -290,43 +403,30 @@ letlist_cont
     ;
 
 letvarexpr
-    :    symbol '=' funcbody { adicionaSimbolo($symbol.text, $funcbody.pTipo); }  	#letvarattr_rule
-    |    '_'    '=' funcbody { adicionaSimbolo("_", $funcbody.pTipo); }              #letvarresult_ignore_rule
+    :    symbol '=' funcbody { adicionaSimbolo($symbol.text, $funcbody.pTipo, pilhaValores.pop().toString()); }  	#letvarattr_rule
+    |    '_'    '=' funcbody { adicionaSimbolo("_", $funcbody.pTipo, pilhaValores.pop().toString());  }             #letvarresult_ignore_rule
     |    symbol '::' symbol '=' funcbody             #letunpack_rule
     ;
 
 metaexpr
 returns [String pRule, String pTipo, String pValue, String pName]
 @init {
-	/*
-    callCount++;
-    
-    if (tabelaSimbolos.isEmpty()) {//Se a tabela está vazia, carrega
-    	tabelaSimbolos.put("i", "int");
-    	tabelaSimbolos.put("f", "float");
-    	tabelaSimbolos.put("s", "string");
-    	tabelaSimbolos.put("c", "char");
-    	tabelaSimbolos.put("b", "bool");
-    	tabelaSimbolos.put("n", "null");
-    }
-    */  
     String tL = null;
     String tR = null;
     String vL = null;
     String vR = null;
     
     String vOperacao = null;
+    String tTipoOriginal = null;
 }
 @after{
-	
-	//callCount--;
 	
 	if ($pRule.equals("TOK_POWER")) {
 		$pTipo = validarExponenciacao(tL, tR);
 	}
 	else if ($pRule.equals("TOK_DIV_OR_MUL") ||
 			 $pRule.equals("TOK_PLUS_OR_MINUS")) {
-		$pTipo = validarASDM(tL, tR);
+		$pTipo = validarASDM(tL, tR, vOperacao);
 	}
 	else if ($pRule.equals("TOK_BOOL_AND_OR")) {
 		$pTipo = "b";
@@ -342,35 +442,28 @@ returns [String pRule, String pTipo, String pValue, String pName]
 		$pTipo = "b";
 	}
 	else if ($pRule.equals("TOK_NEG")) {
+		if ($pTipo != null && !$pTipo.equals("b")) {
+			errorMessages.add(String.format("Operação de negação incompatível: %s", $pValue));
+		}
 		$pTipo = "b";
 	}
 	else if ($pRule.equals("TOK_CONCAT")) {
-		if (!tL.equals("s") || !tR.equals("s")) {
-			errorMessages.add(String.format("Operação de concatenação entre tipos incompatíveis: %s %s %s", tabelaSimbolos.get(tL), vOperacao, tabelaSimbolos.get(tR)));
-		}
-		$pTipo = "s";
+		$pTipo = validarConcatenacao(tL, tR);
 	}
-	
-	/*
-	if (callCount == 0) {
-		System.out.println("------------------------------------------------------------");
-		System.out.println("Tipo final: " + tabelaSimbolos.get($pTipo));
-		System.out.println("------------------------------------------------------------");
-		printErrors();
-		printWarnings();
+	else if ($pRule.equals("CAST")) {
+		$pTipo = validarCast($pTipo, tTipoOriginal, $pValue);	
 	}
-	*/
 }
-    : '(' funcbody ')'                  { $pTipo = $funcbody.pTipo; $pRule = "(funcbody)"; $pValue = $funcbody.text; }             #me_exprparens_rule     // Anything in parenthesis -- if, let, funcion call, etc
+    : '(' funcbody ')'                  { $pTipo = $funcbody.pTipo; $pRule = "(funcbody)"; $pValue = $funcbody.pValue; }             #me_exprparens_rule     // Anything in parenthesis -- if, let, funcion call, etc
     | sequence_expr                                  #me_list_create_rule    // creates a list [x]
     | TOK_NEG symbol                    { $pRule = "TOK_NEG"; }             #me_boolneg_rule        // Negate a variable
-    | TOK_NEG '(' funcbody ')'          { $pRule = "TOK_NEG"; $pTipo = $funcbody.pTipo; }             #me_boolnegparens_rule  //        or anything in between ( )
-    | m1=metaexpr TOK_POWER m2=metaexpr { tL = $m1.pTipo; tR = $m2.pTipo; $pRule = "TOK_POWER"; }                  #me_exprpower_rule      // Exponentiation
+    | TOK_NEG '(' funcbody ')'          { $pRule = "TOK_NEG"; $pTipo = $funcbody.pTipo; $pValue = $funcbody.text; }             #me_boolnegparens_rule  //        or anything in between ( )
+    | m1=metaexpr TOK_POWER m2=metaexpr { tL = $m1.pTipo; tR = $m2.pTipo; $pRule = "TOK_POWER"; vOperacao = $TOK_POWER.text; }                  #me_exprpower_rule      // Exponentiation
     | m1=metaexpr TOK_CONCAT m2=metaexpr { tL = $m1.pTipo; tR = $m2.pTipo; $pRule = "TOK_CONCAT"; vOperacao = $TOK_CONCAT.text; }                   #me_listconcat_rule     // Sequence concatenation
-    | m1=metaexpr TOK_DIV_OR_MUL m2=metaexpr { tL = $m1.pTipo; tR = $m2.pTipo; $pRule = "TOK_DIV_OR_MUL"; }   	               #me_exprmuldiv_rule     // Div and Mult are equal
-    | m1=metaexpr TOK_PLUS_OR_MINUS m2=metaexpr { tL = $m1.pTipo; tR = $m2.pTipo; $pRule = "TOK_PLUS_OR_MINUS"; }            #me_exprplusminus_rule  // Sum and Sub are equal
-    | m1=metaexpr TOK_CMP_GT_LT m2=metaexpr   { tL = $m1.pTipo; tR = $m2.pTipo; $pRule = "TOK_CMP_GT_LT"; }             #me_boolgtlt_rule       // < <= >= > are equal
-    | m1=metaexpr TOK_CMP_EQ_DIFF m2=metaexpr { tL = $m1.pTipo; tR = $m2.pTipo; $pRule = "TOK_CMP_EQ_DIFF"; }             #me_booleqdiff_rule     // == and != are egual
+    | m1=metaexpr TOK_DIV_OR_MUL m2=metaexpr { tL = $m1.pTipo; tR = $m2.pTipo; $pRule = "TOK_DIV_OR_MUL"; vOperacao = $TOK_DIV_OR_MUL.text; }   	               #me_exprmuldiv_rule     // Div and Mult are equal
+    | m1=metaexpr TOK_PLUS_OR_MINUS m2=metaexpr { tL = $m1.pTipo; tR = $m2.pTipo; $pRule = "TOK_PLUS_OR_MINUS"; vOperacao = $TOK_PLUS_OR_MINUS.text; }            #me_exprplusminus_rule  // Sum and Sub are equal
+    | m1=metaexpr TOK_CMP_GT_LT m2=metaexpr   { tL = $m1.pTipo; tR = $m2.pTipo; $pRule = "TOK_CMP_GT_LT"; vOperacao = $TOK_CMP_GT_LT.text; }             #me_boolgtlt_rule       // < <= >= > are equal
+    | m1=metaexpr TOK_CMP_EQ_DIFF m2=metaexpr { tL = $m1.pTipo; tR = $m2.pTipo; $pRule = "TOK_CMP_EQ_DIFF"; vOperacao = $TOK_CMP_EQ_DIFF.text; }             #me_booleqdiff_rule     // == and != are egual
     | m1=metaexpr TOK_BOOL_AND_OR m2=metaexpr { tL = $m1.pTipo; tR = $m2.pTipo; $pRule = "TOK_BOOL_AND_OR"; vOperacao = $TOK_BOOL_AND_OR.text; }             #me_boolandor_rule      // &&   and  ||  are equal
     | symbol  
     	{ 
@@ -378,6 +471,9 @@ returns [String pRule, String pTipo, String pValue, String pName]
     		SymbolEntry<Object> s = symbolTable.lookup($pName);
     		if (s != null) {
     			$pTipo = getKeyByValue(tabelaSimbolos, s.type);
+    			$pValue = s.symbol.toString();
+    			
+    			pilhaValores.push(s.symbol);
     		}
     		else {
     			errorMessages.add(String.format("Símbolo '%s' não declarado!", $pName));
@@ -385,9 +481,16 @@ returns [String pRule, String pTipo, String pValue, String pName]
     		
     		$pRule = "symbol";
     	}                                       #me_exprsymbol_rule     // a single symbol
-    | literal { $pTipo = $literal.pTipo; $pRule = "literal"; $pValue = $literal.pValue; }           #me_exprliteral_rule    // literal value
+    | literal 
+    	{ 
+    		$pTipo = $literal.pTipo; 
+    		$pRule = "literal"; 
+    		$pValue = $literal.pValue;
+    		
+    		pilhaValores.push($literal.pValue);
+    	}           #me_exprliteral_rule    // literal value
     | funcall                                        #me_exprfuncall_rule    // a funcion call
-    | cast  { $pTipo = $cast.pTipo; $pRule = "cast"; $pValue = $cast.pValueDestino; }                                         #me_exprcast_rule       // cast a type to other
+    | cast  { $pTipo = $cast.pTipo; tTipoOriginal = $cast.pTipoOriginal; $pRule = "CAST"; $pValue = pilhaValores.peek().toString(); }                                         #me_exprcast_rule       // cast a type to other
     ;
 
 sequence_expr
@@ -401,84 +504,8 @@ funcall: symbol funcall_params                       #funcall_rule
     ;
 
 cast
-returns [String pTipo, String pValueOriginal, String pValueDestino]
-@init {
-	String ret = null;
-	String vOriginal = null;
-	String vDestino = null;
-}
-@after {
-
-	String tipoDestino = getKeyByValue(tabelaSimbolos, $pTipo);
-	
-	if (tipoDestino.equals("f")) {
-		if (!ret.equals("i") && !ret.equals("s")) {
-			errorMessages.add(String.format("Conversão de '%s'[%s] para '%s' inválida!", tabelaSimbolos.get(ret), vOriginal, $pTipo));
-			
-			//vDestino = String.valueOf(Float.parseFloat("1"));
-		}
-		else {
-			try {
-				//float f = Float.parseFloat(vOriginal);
-				//vDestino = String.format("%f", f);
-			}
-			catch (Exception e) {
-				errorMessages.add(String.format("Conversão de '%s'[%s] para '%s' inválida!", tabelaSimbolos.get(ret), vOriginal, $pTipo));
-				//vDestino = String.format("%f", 1);
-			}	
-		}
-	}
-	else if (tipoDestino.equals("i")) {
-		if (ret.equals("f")) {
-			//double d = Double.parseDouble(vOriginal);
-			//int i = (int) d;
-			//vDestino = String.format("%d", i);
-			warningMessages.add(String.format("Inteiro descartando parte fracionária! Pode perder precisão (%s).", vOriginal));		
-		}
-		else if (ret.equals("c")) {
-			//char c = vOriginal.charAt(0);
-			//int i = (int) c;
-			//vDestino = String.format("%d", i);
-		}
-		else {
-			try {
-				//int i = Integer.parseInt(vOriginal);
-				//vDestino = String.format("%d", i);
-			}
-			catch (Exception e) {
-				errorMessages.add(String.format("Conversão de '%s'[%s] para '%s' inválida!", tabelaSimbolos.get(ret), vOriginal, $pTipo));
-				vDestino = String.format("%d", 1);
-			}
-		}
-	}
-	else if (tipoDestino.equals("s")) {
-		//vDestino = String.valueOf(vOriginal);	
-	}
-	else if (tipoDestino.equals("c")) {
-		if (ret.equals("i")) {
-			//int i = Integer.parseInt(vOriginal);
-			//char c = (char) i;
-			//vDestino = String.format("%s", c);
-		}
-		else {
-			errorMessages.add(String.format("Conversão de '%s'[%s] para '%s' inválida!", tabelaSimbolos.get(ret), vOriginal, $pTipo));
-			//vDestino = "a";
-		}	
-	}
-	else if (tipoDestino.equals("b")) {
-		if (vOriginal == null)
-			vDestino = "false";
-		else
-			vDestino = "true";
-	}
-	else {
-		errorMessages.add(String.format("Conversão de '%s'[%s] para '%s' inválida! Tipos aceitos são {float, int, char, bool, str}.", tabelaSimbolos.get(ret), vOriginal, $pTipo));
-		System.exit(0);
-	}
-	
-	$pTipo = tipoDestino;
-}
-    : type vFunc=funcbody  { $pTipo = $type.text; ret = $vFunc.pTipo; vOriginal = $vFunc.pValue; }                                #cast_rule
+returns [String pTipo, String pTipoOriginal, String pValue]
+    : type vFunc=funcbody  { $pTipo = $type.text; $pTipoOriginal = $vFunc.pTipo; $pValue = $vFunc.pValue; }   #cast_rule
     ;
 
 funcall_params

@@ -10,6 +10,11 @@ import javax.swing.filechooser.*;
 public class ExemploSymbolTable {
 
 	public static void main(String[] args) throws Exception {
+		
+		Stack<Object> pilhaValores = new Stack<>();
+		int op2 = Integer.parseInt(pilhaValores.pop().toString());
+		
+		/*
 		NestedSymbolTable<Integer> mt = new NestedSymbolTable<Integer>();
         mt.store("lala", 0);
         mt.store("lele", 1);
@@ -32,6 +37,7 @@ public class ExemploSymbolTable {
         for (SymbolEntry<Integer> entry : mt.getEntries()) {
             System.out.println("mt Entry: " + entry);
         }
+        */
 	}
 	
 }

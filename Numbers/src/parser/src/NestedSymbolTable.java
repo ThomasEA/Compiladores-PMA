@@ -21,9 +21,8 @@ class SymbolEntry<T> {
         return "Symbol: " + name + 
         		", Type " + type +
         		", Offset " + offset +
-                ", Size " + size;
-        
-                //", Value: " + symbol;
+                ", Size " + size +
+                ", Value " + symbol;
     }
 }
 
