@@ -44,16 +44,31 @@ import java.util.Map.Entry;
 	}
 	
 	private String validarExponenciacao(String tL, String tR) {
+		String vFinal = "1";
+		
 		if ((tL.equals("i") && tR.equals("i")) ||
 			(tL.equals("f") && tR.equals("i")) ||
 			(tL.equals("i") && tR.equals("f")) ||
 			(tL.equals("f") && tR.equals("f"))) {
-			return "f";
+			
+			printPilhaValores();
+			
+			String vR = pilhaValores.pop().toString().replace(",",".");
+			String vL = pilhaValores.pop().toString().replace(",",".");
+			
+			double fR = Double.parseDouble(vR);
+			double fL = Double.parseDouble(vL);
+			
+			vFinal = String.format("%f", Math.pow(fL,fR));
 		}
 		else {
 			errorMessages.add(String.format("Operação de exponenciação com tipo errados: %s ^ %s", tabelaSimbolos.get(tL), tabelaSimbolos.get(tR)));
 			return "f";
 		}
+		
+		pilhaValores.push(vFinal);
+		
+		return "f";
 	}
 	
 	private String validarConcatenacao(String tL, String tR) {
@@ -160,6 +175,197 @@ import java.util.Map.Entry;
 		return getKeyByValue(tabelaSimbolos, tipoDestino);
 	}
 	
+	private String validarGT_LT(String tL, String tR, String operacao) {
+		String vFinal = "false";
+		
+		if (tL.equals("i") && tR.equals("i")) {
+			int vR = Integer.parseInt(pilhaValores.pop().toString());
+			int vL = Integer.parseInt(pilhaValores.pop().toString());
+			
+			if (operacao.equals(">")) {
+				vFinal = String.valueOf(vL > vR);
+			}
+			else if (operacao.equals("<")) {
+				vFinal = String.valueOf(vL < vR);
+			}
+			else if (operacao.equals(">=")) {
+				vFinal = String.valueOf(vL >= vR);
+			}
+			else if (operacao.equals("<=")) {
+				vFinal = String.valueOf(vL <= vR);
+			}
+		}
+		else if (tL.equals("f") && tR.equals("f")) {
+			float vR = Float.parseFloat(pilhaValores.pop().toString().replace(",","."));
+			float vL = Float.parseFloat(pilhaValores.pop().toString().replace(",","."));
+			
+			if (operacao.equals(">")) {
+				vFinal = String.valueOf(vL > vR);
+			}
+			else if (operacao.equals("<")) {
+				vFinal = String.valueOf(vL < vR);
+			}
+			else if (operacao.equals(">=")) {
+				vFinal = String.valueOf(vL >= vR);
+			}
+			else if (operacao.equals("<=")) {
+				vFinal = String.valueOf(vL <= vR);
+			}
+		}
+		else if (tL.equals("f") && tR.equals("i")) {
+			int vR = Integer.parseInt(pilhaValores.pop().toString().replace(",","."));
+			float vL = Float.parseFloat(pilhaValores.pop().toString().replace(",","."));
+			
+			if (operacao.equals(">")) {
+				vFinal = String.valueOf(vL > vR);
+			}
+			else if (operacao.equals("<")) {
+				vFinal = String.valueOf(vL < vR);
+			}
+			else if (operacao.equals(">=")) {
+				vFinal = String.valueOf(vL >= vR);
+			}
+			else if (operacao.equals("<=")) {
+				vFinal = String.valueOf(vL <= vR);
+			}
+		}
+		else if (tL.equals("i") && tR.equals("f")) {
+			float vR = Float.parseFloat(pilhaValores.pop().toString().replace(",","."));
+			int vL = Integer.parseInt(pilhaValores.pop().toString().replace(",","."));
+			
+			if (operacao.equals(">")) {
+				vFinal = String.valueOf(vL > vR);
+			}
+			else if (operacao.equals("<")) {
+				vFinal = String.valueOf(vL < vR);
+			}
+			else if (operacao.equals(">=")) {
+				vFinal = String.valueOf(vL >= vR);
+			}
+			else if (operacao.equals("<=")) {
+				vFinal = String.valueOf(vL <= vR);
+			}
+		}
+		else {
+			String vR = pilhaValores.pop().toString();
+			String vL = pilhaValores.pop().toString();
+			
+			vFinal = "false";
+		}
+		
+		pilhaValores.push(vFinal); 
+		
+		return "b";
+	}
+	
+	private String validarAND_OR(String tL, String tR, String operacao) {
+	
+		String vR = pilhaValores.pop().toString();
+		String vL = pilhaValores.pop().toString();
+	
+		if (!tL.equals("b") || !tR.equals("b")) {
+			errorMessages.add(String.format("Operador %s com tipos incompatíveis: %s e %s", operacao, tabelaSimbolos.get(tL), tabelaSimbolos.get(tR)));
+			
+			pilhaValores.push("false");
+		}
+		else {
+			if (operacao.equals("&&")) {
+				pilhaValores.push(String.valueOf(vL.equals("true") && vR.equals("true")));
+			}
+			else if (operacao.equals("||")) {
+				pilhaValores.push(String.valueOf(vL.equals("true") || vR.equals("true")));
+			}
+		
+		}
+	
+		return "b";
+	}
+	
+	private String validarEQ_DIFF(String tL, String tR, String operacao) {
+		String vFinal = "false";
+		
+		if (tL.equals("i") && tR.equals("i")) {
+			int vR = Integer.parseInt(pilhaValores.pop().toString());
+			int vL = Integer.parseInt(pilhaValores.pop().toString());
+			
+			if (operacao.equals("==")) {
+				vFinal = String.valueOf(vL == vR);
+			}
+			else if (operacao.equals("!=")) {
+				vFinal = String.valueOf(vL != vR);
+			}
+		}
+		else if (tL.equals("f") && tR.equals("f")) {
+			float vR = Float.parseFloat(pilhaValores.pop().toString().replace(",","."));
+			float vL = Float.parseFloat(pilhaValores.pop().toString().replace(",","."));
+			
+			if (operacao.equals("==")) {
+				vFinal = String.valueOf(vL == vR);
+			}
+			else if (operacao.equals("!=")) {
+				vFinal = String.valueOf(vL != vR);
+			}
+		}
+		else if (tL.equals("f") && tR.equals("i")) {
+			int vR = Integer.parseInt(pilhaValores.pop().toString().replace(",","."));
+			float vL = Float.parseFloat(pilhaValores.pop().toString().replace(",","."));
+			
+			if (operacao.equals("==")) {
+				vFinal = String.valueOf(vL == vR);
+			}
+			else if (operacao.equals("!=")) {
+				vFinal = String.valueOf(vL != vR);
+			}
+		}
+		else if (tL.equals("i") && tR.equals("f")) {
+			float vR = Float.parseFloat(pilhaValores.pop().toString().replace(",","."));
+			int vL = Integer.parseInt(pilhaValores.pop().toString().replace(",","."));
+			
+			if (operacao.equals("==")) {
+				vFinal = String.valueOf(vL == vR);
+			}
+			else if (operacao.equals("!=")) {
+				vFinal = String.valueOf(vL != vR);
+			}
+		}
+		else if (tL.equals("c") && tR.equals("c")) {
+			String vR = pilhaValores.pop().toString();
+			String vL = pilhaValores.pop().toString();
+			
+			char cR = vR.charAt(0);
+			char cL = vL.charAt(0);
+			
+			if (operacao.equals("==")) {
+				vFinal = String.valueOf(cL == cR);
+			}
+			else if (operacao.equals("!=")) {
+				vFinal = String.valueOf(cL != cR);
+			}
+		}
+		else if (tL.equals("s") && tR.equals("s")) {
+			
+			String vR = pilhaValores.pop().toString();
+			String vL = pilhaValores.pop().toString();
+			
+			if (operacao.equals("==")) {
+				vFinal = String.valueOf(vL.equals(vR));
+			}
+			else if (operacao.equals("!=")) {
+				vFinal = String.valueOf(!vL.equals(vR));
+			}
+		}
+		else {
+			String vR = pilhaValores.pop().toString();
+			String vL = pilhaValores.pop().toString();
+		
+			vFinal = "false";
+		}
+		
+		pilhaValores.push(vFinal); 
+		
+		return "b";
+	}
+	
 	private String validarASDM(String tL, String tR, String operacao) {
 		if ((tL.equals("i") && tR.equals("i"))) {
 			
@@ -184,10 +390,29 @@ import java.util.Map.Entry;
 		else if ((tL.equals("f") && tR.equals("i")) ||
 				 (tL.equals("i") && tR.equals("f")) ||
 				 (tL.equals("f") && tR.equals("f"))) {
+			
+			double f2 = Double.parseDouble(pilhaValores.pop().toString().replace(",","."));
+			double f1 = Double.parseDouble(pilhaValores.pop().toString().replace(",","."));
+			
+			if (operacao.equals("+")) {
+				pilhaValores.push(f1 + f2);
+			}
+			else if (operacao.equals("-")) {
+				pilhaValores.push(f1 - f2);
+			}
+			else if (operacao.equals("*")) {
+				pilhaValores.push(f1 * f2);
+			}
+			else if (operacao.equals("/")) {
+				pilhaValores.push(f1 / f2);
+			}
+			
 			return "f";
 		}
 		else {
 			errorMessages.add(String.format("Operação aritmética com tipo errados: %s e %s", tabelaSimbolos.get(tL), tabelaSimbolos.get(tR)));
+			
+			pilhaValores.push("1");
 			
 			if ((tL.equals("i") || tL.equals("f"))) {
 				return tL;
@@ -421,50 +646,52 @@ returns [String pRule, String pTipo, String pValue, String pName]
 }
 @after{
 	
-	if ($pRule.equals("TOK_POWER")) {
-		$pTipo = validarExponenciacao(tL, tR);
-	}
-	else if ($pRule.equals("TOK_DIV_OR_MUL") ||
-			 $pRule.equals("TOK_PLUS_OR_MINUS")) {
-		$pTipo = validarASDM(tL, tR, vOperacao);
-	}
-	else if ($pRule.equals("TOK_BOOL_AND_OR")) {
-		$pTipo = "b";
-		
-		if (!tL.equals("b") || !tR.equals("b")) {
-			errorMessages.add(String.format("Operação booleana entre tipos incompatíveis: %s %s %s", tabelaSimbolos.get(tL), vOperacao, tabelaSimbolos.get(tR)));
-		}
-	}
-	else if ($pRule.equals("TOK_CMP_GT_LT") || $pRule.equals("TOK_CMP_EQ_DIFF")) {
-		$pTipo = "b";
-	}
-	else if ($pRule.equals("TOK_CMP_GT_LT") || $pRule.equals("TOK_CMP_EQ_DIFF")) {
-		$pTipo = "b";
-	}
-	else if ($pRule.equals("TOK_NEG")) {
+	if ($pRule.equals("TOK_NEG")) {
 		if ($pTipo != null && !$pTipo.equals("b")) {
 			errorMessages.add(String.format("Operação de negação incompatível: %s", $pValue));
 		}
 		$pTipo = "b";
-	}
-	else if ($pRule.equals("TOK_CONCAT")) {
-		$pTipo = validarConcatenacao(tL, tR);
-	}
-	else if ($pRule.equals("CAST")) {
-		$pTipo = validarCast($pTipo, tTipoOriginal, $pValue);	
 	}
 }
     : '(' funcbody ')'                  { $pTipo = $funcbody.pTipo; $pRule = "(funcbody)"; $pValue = $funcbody.pValue; }             #me_exprparens_rule     // Anything in parenthesis -- if, let, funcion call, etc
     | sequence_expr                                  #me_list_create_rule    // creates a list [x]
     | TOK_NEG symbol                    { $pRule = "TOK_NEG"; }             #me_boolneg_rule        // Negate a variable
     | TOK_NEG '(' funcbody ')'          { $pRule = "TOK_NEG"; $pTipo = $funcbody.pTipo; $pValue = $funcbody.text; }             #me_boolnegparens_rule  //        or anything in between ( )
-    | m1=metaexpr TOK_POWER m2=metaexpr { tL = $m1.pTipo; tR = $m2.pTipo; $pRule = "TOK_POWER"; vOperacao = $TOK_POWER.text; }                  #me_exprpower_rule      // Exponentiation
-    | m1=metaexpr TOK_CONCAT m2=metaexpr { tL = $m1.pTipo; tR = $m2.pTipo; $pRule = "TOK_CONCAT"; vOperacao = $TOK_CONCAT.text; }                   #me_listconcat_rule     // Sequence concatenation
-    | m1=metaexpr TOK_DIV_OR_MUL m2=metaexpr { tL = $m1.pTipo; tR = $m2.pTipo; $pRule = "TOK_DIV_OR_MUL"; vOperacao = $TOK_DIV_OR_MUL.text; }   	               #me_exprmuldiv_rule     // Div and Mult are equal
-    | m1=metaexpr TOK_PLUS_OR_MINUS m2=metaexpr { tL = $m1.pTipo; tR = $m2.pTipo; $pRule = "TOK_PLUS_OR_MINUS"; vOperacao = $TOK_PLUS_OR_MINUS.text; }            #me_exprplusminus_rule  // Sum and Sub are equal
-    | m1=metaexpr TOK_CMP_GT_LT m2=metaexpr   { tL = $m1.pTipo; tR = $m2.pTipo; $pRule = "TOK_CMP_GT_LT"; vOperacao = $TOK_CMP_GT_LT.text; }             #me_boolgtlt_rule       // < <= >= > are equal
-    | m1=metaexpr TOK_CMP_EQ_DIFF m2=metaexpr { tL = $m1.pTipo; tR = $m2.pTipo; $pRule = "TOK_CMP_EQ_DIFF"; vOperacao = $TOK_CMP_EQ_DIFF.text; }             #me_booleqdiff_rule     // == and != are egual
-    | m1=metaexpr TOK_BOOL_AND_OR m2=metaexpr { tL = $m1.pTipo; tR = $m2.pTipo; $pRule = "TOK_BOOL_AND_OR"; vOperacao = $TOK_BOOL_AND_OR.text; }             #me_boolandor_rule      // &&   and  ||  are equal
+    | m1=metaexpr TOK_POWER m2=metaexpr 
+    	{ 
+    		$pRule = "TOK_POWER"; 
+    		$pTipo = validarExponenciacao($m1.pTipo, $m2.pTipo); 
+    	}                  #me_exprpower_rule      // Exponentiation
+    | m1=metaexpr TOK_CONCAT m2=metaexpr 
+    	{ 
+    		$pRule = "TOK_CONCAT"; 
+    		$pTipo = validarConcatenacao($m1.pTipo, $m2.pTipo);
+    	}                   #me_listconcat_rule     // Sequence concatenation
+    | m1=metaexpr TOK_DIV_OR_MUL m2=metaexpr 
+    	{ 
+    		$pRule = "TOK_DIV_OR_MUL"; 
+    		$pTipo = validarASDM($m1.pTipo, $m2.pTipo, $TOK_DIV_OR_MUL.text); 
+    	}   	               #me_exprmuldiv_rule     // Div and Mult are equal
+    | m1=metaexpr TOK_PLUS_OR_MINUS m2=metaexpr 
+    	{ 
+    		$pRule = "TOK_PLUS_OR_MINUS"; 
+    		$pTipo = validarASDM($m1.pTipo, $m2.pTipo, $TOK_PLUS_OR_MINUS.text);
+    	}            #me_exprplusminus_rule  // Sum and Sub are equal
+    | m1=metaexpr TOK_CMP_GT_LT m2=metaexpr   
+    	{ 
+    		$pRule = "TOK_CMP_GT_LT"; 
+    		$pTipo = validarGT_LT($m1.pTipo, $m2.pTipo, $TOK_CMP_GT_LT.text);
+    	}             #me_boolgtlt_rule       // < <= >= > are equal
+    | m1=metaexpr TOK_CMP_EQ_DIFF m2=metaexpr 
+    	{ 
+    		$pRule = "TOK_CMP_EQ_DIFF"; 
+    		$pTipo = validarEQ_DIFF($m1.pTipo, $m2.pTipo, $TOK_CMP_EQ_DIFF.text); 
+    	}             #me_booleqdiff_rule     // == and != are egual
+    | m1=metaexpr TOK_BOOL_AND_OR m2=metaexpr 
+    	{ 
+    		$pRule = "TOK_BOOL_AND_OR"; 
+    		$pTipo = validarAND_OR($m1.pTipo, $m2.pTipo, $TOK_BOOL_AND_OR.text);
+    	}             #me_boolandor_rule      // &&   and  ||  are equal
     | symbol  
     	{ 
     		$pName = $symbol.text;
@@ -490,7 +717,12 @@ returns [String pRule, String pTipo, String pValue, String pName]
     		pilhaValores.push($literal.pValue);
     	}           #me_exprliteral_rule    // literal value
     | funcall                                        #me_exprfuncall_rule    // a funcion call
-    | cast  { $pTipo = $cast.pTipo; tTipoOriginal = $cast.pTipoOriginal; $pRule = "CAST"; $pValue = pilhaValores.peek().toString(); }                                         #me_exprcast_rule       // cast a type to other
+    | cast  
+    	{ 
+    		$pRule = "CAST"; 
+    		$pValue = pilhaValores.peek().toString(); 
+    		$pTipo = validarCast($cast.pTipo, $cast.pTipoOriginal, $pValue);
+    	}                                         #me_exprcast_rule       // cast a type to other
     ;
 
 sequence_expr
